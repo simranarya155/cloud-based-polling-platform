@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Set Email for User</title>
+</head>
+
+<body style="font-family:Arial; padding:18px;">
+    <h3>Attach email to a user (demo admin)</h3>
+    {% if message %}
+    <div style="color:crimson">{{ message }}</div>{% endif %}
+    <form method="post" action="{{ url_for('set_email') }}">
+        <input name="mobile" placeholder="User mobile (existing)" required /><br/><br/>
+        <input name="email" placeholder="Email to attach" required /><br/><br/>
+        <button type="submit">Set Email</button>
+    </form>
+    <p>Use this to add an email for an existing user so they can use email verification to login.</p>
+</body>
+
+</html>

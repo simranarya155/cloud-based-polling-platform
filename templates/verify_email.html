@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Verify Email</title>
+</head>
+
+<body style="font-family:Arial; padding:18px;">
+    <h3>Verify email: {{ email }}</h3>
+    {% if message %}
+    <div style="color:crimson">{{ message }}</div>{% endif %}
+    <p><strong>Demo OTP (would be emailed in production):</strong> {{ otp }}</p>
+
+    <form method="post" action="{{ url_for('verify_email') }}">
+        <input name="otp" placeholder="Enter OTP" required />
+        <button type="submit">Verify & Sign in</button>
+    </form>
+
+    <p><a href="{{ url_for('email_login') }}">Back</a></p>
+</body>
+
+</html>

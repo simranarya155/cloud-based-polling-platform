@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Vote</title>
+</head>
+
+<body style="font-family:Arial; padding:18px;">
+    <h2>Vote</h2>
+    <p>Welcome, {{ user.name }} {% if user.mobile %} ({{ user.mobile }}){% endif %}</p>
+    {% if message %}
+    <div style="color:crimson">{{ message }}</div>{% endif %} {% if voted %}
+    <p><strong>You voted for: {{ voted }}</strong></p>
+    <p><a href="{{ url_for('users') }}">View users</a> | <a href="{{ url_for('logout') }}">Logout</a></p>
+    {% else %}
+    <form method="post" action="{{ url_for('vote') }}">
+        {% for t in teams %}
+        <div>
+            <input type="radio" name="team" id="t_{{ loop.index }}" value="{{ t }}" />
+            <label for="t_{{ loop.index }}">{{ t }}</label>
+        </div>
+        {% endfor %}
+        <br/>
+        <button type="submit">Submit Vote</button>
+    </form>
+    <p><a href="{{ url_for('logout') }}">Logout</a></p>
+    {% endif %}
+</body>
+
+</html>

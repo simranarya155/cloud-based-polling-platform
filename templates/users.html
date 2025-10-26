@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Registered Users (Print)</title>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 18px;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .actions {
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="actions">
+        <a href="{{ url_for('register_page') }}">Register (Phone)</a> |
+        <a href="{{ url_for('email_login') }}">Email Login</a> |
+        <a href="{{ url_for('set_email') }}">Set Email (admin)</a>
+    </div>
+
+    <h2>Registered Users</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Mobile</th>
+                <th>Email</th>
+                <th>Phone Verified</th>
+                <th>Email Verified</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td>{{ u.id }}</td>
+                <td>{{ u.name }}</td>
+                <td>{{ u.mobile }}</td>
+                <td>{{ u.email or '-' }}</td>
+                <td>{{ 'Yes' if u.phone_verified else 'No' }}</td>
+                <td>{{ 'Yes' if u.email_verified else 'No' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>

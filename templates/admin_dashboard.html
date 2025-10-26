@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Admin Dashboard</title>
+</head>
+
+<body style="font-family:Arial; padding:18px;">
+    <h2>Admin Dashboard</h2>
+    <p><a href="{{ url_for('admin_logout') }}">Logout</a></p>
+
+    <h3>Vote counts</h3>
+    <table border="1" cellpadding="6">
+        <thead>
+            <tr>
+                <th>Team</th>
+                <th>Count</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in counts %}
+            <tr>
+                <td>{{ r.team }}</td>
+                <td>{{ r.cnt }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="2">No votes yet</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>All votes (latest first)</h3>
+    <table border="1" cellpadding="6">
+        <thead>
+            <tr>
+                <th>Vote ID</th>
+                <th>Team</th>
+                <th>Voted At</th>
+                <th>User</th>
+                <th>Mobile</th>
+                <th>Email</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in votes %}
+            <tr>
+                <td>{{ v.vote_id }}</td>
+                <td>{{ v.team }}</td>
+                <td>{{ v.created_at }}</td>
+                <td>{{ v.name }} (id:{{ v.user_id }})</td>
+                <td>{{ v.mobile }}</td>
+                <td>{{ v.email or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6">No votes recorded</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>

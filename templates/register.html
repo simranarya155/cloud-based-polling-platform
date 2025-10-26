@@ -1,0 +1,326 @@
+<!-- templates/register.html -->
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Register — Online Voting</title>
+
+    <!-- Google font (optional, nice touch) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+         :root {
+            --bg-1: #0f172a;
+            --accent-1: #6EE7B7;
+            --accent-2: #60A5FA;
+            --card-bg: rgba(255, 255, 255, 0.07);
+            --glass: rgba(255, 255, 255, 0.06);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --muted: rgba(255, 255, 255, 0.75);
+        }
+        /* Full-screen animated gradient */
+        
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+            color: white;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .bg {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(120deg, #071028 0%, #0b2740 35%, #07213a 60%, #0b1524 100%);
+            overflow: hidden;
+        }
+        /* subtle moving gradient overlay */
+        
+        .bg::before {
+            content: "";
+            position: absolute;
+            inset: -20%;
+            background: radial-gradient(circle at 10% 20%, rgba(96, 165, 250, 0.12), transparent 8%), radial-gradient(circle at 80% 70%, rgba(110, 231, 183, 0.10), transparent 10%);
+            animation: drift 18s linear infinite;
+            mix-blend-mode: overlay;
+            filter: blur(36px);
+            opacity: 0.95;
+        }
+        
+        @keyframes drift {
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+            50% {
+                transform: translate(6%, -4%) rotate(10deg);
+            }
+            100% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+        }
+        /* decorative floating blobs */
+        
+        .blob {
+            position: absolute;
+            width: 420px;
+            height: 420px;
+            background: linear-gradient(135deg, rgba(96, 165, 250, 0.18), rgba(110, 231, 183, 0.14));
+            filter: blur(48px);
+            border-radius: 50%;
+            transform: translate3d(0, 0, 0);
+            opacity: 0.9;
+            animation: floaty 10s ease-in-out infinite;
+        }
+        
+        .blob.b1 {
+            left: -90px;
+            top: -80px;
+            animation-duration: 12s;
+        }
+        
+        .blob.b2 {
+            right: -120px;
+            bottom: -60px;
+            animation-duration: 14s;
+        }
+        
+        @keyframes floaty {
+            0% {
+                transform: translateY(0) scale(1) rotate(0deg);
+            }
+            50% {
+                transform: translateY(-18px) scale(1.04) rotate(6deg);
+            }
+            100% {
+                transform: translateY(0) scale(1) rotate(0deg);
+            }
+        }
+        /* Centered layout with a neat card */
+        
+        .wrap {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 36px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .card {
+            width: 100%;
+            max-width: 920px;
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 28px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02));
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 10px 40px rgba(2, 6, 23, 0.6);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(8px) saturate(120%);
+        }
+        /* Left content (form) */
+        
+        .left {
+            padding: 18px 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        h1 {
+            margin: 0 0 6px 0;
+            font-size: 28px;
+            letter-spacing: -0.4px;
+            color: #fff;
+        }
+        
+        p.lead {
+            margin: 0 0 18px 0;
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 14px;
+        }
+        
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        textarea,
+        select {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 12px 14px;
+            color: var(--muted);
+            border-radius: 10px;
+            outline: none;
+            transition: box-shadow .18s ease, transform .12s ease, border-color .12s ease;
+            font-size: 14px;
+        }
+        
+        input:focus,
+        textarea:focus,
+        select:focus {
+            box-shadow: 0 6px 18px rgba(96, 165, 250, 0.08);
+            border-color: rgba(96, 165, 250, 0.32);
+            transform: translateY(-1px);
+        }
+        
+        .row {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .row>* {
+            flex: 1;
+        }
+        
+        .btn {
+            background: linear-gradient(90deg, var(--accent-2), var(--accent-1));
+            color: #07213a;
+            font-weight: 600;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 8px 26px rgba(99, 102, 241, 0.08);
+            transition: transform .12s ease, box-shadow .12s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 14px 30px rgba(99, 102, 241, 0.12);
+        }
+        
+        .note {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 6px;
+        }
+        /* Right illustration area */
+        
+        .right {
+            padding: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        /* simple SVG-style decoration */
+        
+        .illustration {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 8px;
+            color: rgba(255, 255, 255, 0.95);
+            text-align: center;
+        }
+        
+        .illustration .logo {
+            width: 120px;
+            height: 120px;
+            border-radius: 20px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            box-shadow: inset 0 -6px 18px rgba(0, 0, 0, 0.25);
+            font-weight: 700;
+            font-size: 18px;
+            letter-spacing: 0.2px;
+            color: #fff;
+        }
+        
+        .illustration h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+        
+        .illustration p {
+            margin: 0;
+            font-size: 13px;
+            opacity: 0.9;
+        }
+        /* small responsive adjustments */
+        
+        @media (max-width:920px) {
+            .card {
+                grid-template-columns: 1fr;
+            }
+            .right {
+                order: -1;
+                padding-bottom: 6px;
+                min-height: 180px;
+            }
+        }
+        /* small error/message block */
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 4px solid rgba(255, 99, 132, 0.4);
+            color: #ffd6de;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg" aria-hidden="true">
+        <div class="blob b1"></div>
+        <div class="blob b2"></div>
+    </div>
+
+    <div class="wrap">
+        <div class="card" role="main">
+            <div class="left">
+                <h1>Welcome to Online Voting</h1>
+                <p class="lead">Register quickly with your phone — or sign in with email if you're already registered.</p>
+
+                {% if message %}
+                <div class="message">{{ message }}</div>
+                {% endif %}
+
+                <form action="{{ url_for('register') }}" method="post" id="regForm">
+                    <div class="row">
+                        <input type="text" name="name" placeholder="Full name" required />
+                        <input type="tel" name="mobile" placeholder="Mobile (10 digits)" pattern="[0-9]{10}" required />
+                    </div>
+
+                    <div style="display:flex; gap:12px; margin-top:6px;">
+                        <button class="btn" type="submit">Register (Send OTP)</button>
+                        <a href="{{ url_for('email_login') }}" style="display:inline-grid; place-items:center; padding:10px 14px; text-decoration:none; border-radius:10px; color:var(--muted); background:transparent; border:1px solid rgba(255,255,255,0.03);">Sign in via Email</a>
+                    </div>
+
+                    <p class="note">By continuing you agree to the platform's basic terms. This is a demo — OTPs are displayed for testing.</p>
+                </form>
+            </div>
+
+            <div class="right" aria-hidden="true">
+                <div class="illustration">
+                    <div class="logo">VOTE</div>
+                    <h3>Make your voice count</h3>
+                    <p>Secure · Simple · Fast</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
