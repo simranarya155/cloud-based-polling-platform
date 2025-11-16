@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Results | Polling Platform</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: "Poppins", sans-serif;
+            background: linear-gradient(120deg, #ff6a00, #ee0979, #6a11cb, #2575fc);
+            background-size: 300% 300%;
+            animation: gradientMove 10s ease infinite;
+        }
+        
+        @keyframes gradientMove {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+        
+        .box {
+            background: #fff;
+            padding: 40px;
+            border-radius: 20px;
+            width: 420px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+            text-align: center;
+            animation: fadeIn 0.6s ease;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        h2 {
+            color: #4a3aff;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+        
+        .bar-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+        
+        .label {
+            flex: 1;
+            text-align: left;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .bar-wrapper {
+            flex: 2;
+            height: 18px;
+            background: #f0f0ff;
+            border-radius: 10px;
+            margin: 0 10px;
+            overflow: hidden;
+        }
+        
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #6a11cb, #2575fc);
+            border-radius: 10px;
+            transition: width 0.6s ease;
+            width: 0;
+        }
+        
+        .count {
+            flex: 0.8;
+            text-align: right;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        a {
+            display: block;
+            margin-top: 25px;
+            text-align: center;
+            color: #4a3aff;
+            text-decoration: none;
+            font-weight: 500;
+            transition: 0.3s;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .no-poll {
+            color: crimson;
+            font-weight: 600;
+        }
+        
+        .timestamp {
+            margin-top: 12px;
+            font-size: 12px;
+            color: #777;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="box">
+        <h2 id="question">Loading...</h2>
+        <div id="bars"></div>
+        <div class="timestamp" id="updatedTime"></div>
+        <a href="/">← Back to Home</a>
+    </div>
+
+    <script>
+        async function loadResults() {
+            try {
+                const resp = await fetch('/results_json', {
+                    cache: 'no-store'
+                });
+                if (!resp.ok) throw new Error('Network error');
+
+                const data = await resp.json();
+                const questionEl = document.getElementById('question');
+                const barsContainer = document.getElementById('bars');
+                const updatedEl = document.getElementById('updatedTime');
+
+                if (!data.active) {
+                    questionEl.textContent = "No active poll";
+                    questionEl.classList.add("no-poll");
+                    barsContainer.innerHTML = '';
+                    updatedEl.textContent = '';
+                    return;
+                }
+
+                questionEl.classList.remove("no-poll");
+                questionEl.textContent = data.question;
+                barsContainer.innerHTML = '';
+
+                const totalVotes = data.options.reduce((sum, opt) => sum + opt.votes, 0);
+
+                data.options.forEach(opt => {
+                    const percent = totalVotes ? Math.round((opt.votes / totalVotes) * 100) : 0;
+
+                    const row = document.createElement('div');
+                    row.className = 'bar-row';
+
+                    const label = document.createElement('div');
+                    label.className = 'label';
+                    label.textContent = opt.text;
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'bar-wrapper';
+
+                    const fill = document.createElement('div');
+                    fill.className = 'bar-fill';
+                    fill.style.width = percent + '%';
+                    wrapper.appendChild(fill);
+
+                    const count = document.createElement('div');
+                    count.className = 'count';
+                    count.textContent = `${opt.votes} (${percent}%)`;
+
+                    row.appendChild(label);
+                    row.appendChild(wrapper);
+                    row.appendChild(count);
+
+                    barsContainer.appendChild(row);
+                });
+
+                const now = new Date();
+                updatedEl.textContent = "Last updated: " + now.toLocaleTimeString();
+            } catch (err) {
+                console.error("Error:", err);
+            }
+        }
+
+        // Initial load + auto-refresh every 2 seconds
+        loadResults();
+        setInterval(loadResults, 2000);
+    </script>
+</body>
+
+</html>

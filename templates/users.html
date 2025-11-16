@@ -3,59 +3,87 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Registered Users (Print)</title>
+    <title>Registered Users</title>
     <style>
         body {
-            font-family: Arial;
-            padding: 18px;
+            font-family: "Poppins", sans-serif;
+            background: #f6f8ff;
+            padding: 30px;
+            color: #333;
+        }
+        
+        h2 {
+            color: #4a3aff;
+            margin-bottom: 20px;
         }
         
         table {
             border-collapse: collapse;
             width: 100%;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         
         th,
         td {
             border: 1px solid #ddd;
-            padding: 8px;
+            padding: 12px;
             text-align: left;
+            font-size: 14px;
+        }
+        
+        th {
+            background-color: #4a3aff;
+            color: white;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
         }
         
         .actions {
-            margin-bottom: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .actions a {
+            color: #4a3aff;
+            text-decoration: none;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        
+        .actions a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 
 <body>
     <div class="actions">
-        <a href="{{ url_for('register_page') }}">Register (Phone)</a> |
-        <a href="{{ url_for('email_login') }}">Email Login</a> |
-        <a href="{{ url_for('set_email') }}">Set Email (admin)</a>
+        <a href="{{ url_for('register') }}">Register User</a> |
+        <a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a> |
+        <a href="{{ url_for('home') }}">Home</a>
     </div>
 
     <h2>Registered Users</h2>
     <table>
         <thead>
             <tr>
-                <th>ID</th>
+                <th>Sr. No.</th>
                 <th>Name</th>
-                <th>Mobile</th>
-                <th>Email</th>
-                <th>Phone Verified</th>
-                <th>Email Verified</th>
+                <th>Phone</th>
+                <th>Verified</th>
             </tr>
         </thead>
         <tbody>
             {% for u in users %}
             <tr>
-                <td>{{ u.id }}</td>
-                <td>{{ u.name }}</td>
-                <td>{{ u.mobile }}</td>
-                <td>{{ u.email or '-' }}</td>
-                <td>{{ 'Yes' if u.phone_verified else 'No' }}</td>
-                <td>{{ 'Yes' if u.email_verified else 'No' }}</td>
+                <td>{{ loop.index }}</td>
+                <td>{{ u['name'] }}</td>
+                <td>{{ u['phone'] }}</td>
+                <td>{{ 'Yes' if u['verified'] else 'No' }}</td>
             </tr>
             {% endfor %}
         </tbody>

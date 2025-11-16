@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Vote Statistics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            text-align: center;
+            background: #f5f5f5;
+            margin-top: 50px;
+        }
+        
+        canvas {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>🗳️ Voting Results (Who Voted for What)</h2>
+    <canvas id="voteChart"></canvas>
+
+    <script>
+        // Use JSON.parse() to safely embed Jinja variables into JS
+        const names = JSON.parse('{{ names | tojson | safe }}');
+        const choices = JSON.parse('{{ choices | tojson | safe }}');
+
+        // Generate a bar chart
+        new Chart(document.getElementById('voteChart'), {
+            type: 'bar',
+            data: {
+                labels: names,
+                datasets: [{
+                    label: 'Option Chosen',
+                    data: choices.map((_, i) => i + 1), // Dummy numeric values for chart height
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Choice: ${choices[context.dataIndex]}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        },
+                        title: {
+                            display: true,
+                            text: 'Vote Index'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Voter Name'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

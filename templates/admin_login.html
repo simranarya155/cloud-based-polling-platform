@@ -4,16 +4,71 @@
 <head>
     <meta charset="utf-8">
     <title>Admin Login</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(120deg, #6a11cb, #2575fc);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #333;
+        }
+        
+        .box {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+            text-align: center;
+            width: 320px;
+        }
+        
+        input {
+            width: 85%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        
+        button {
+            background: #2575fc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        
+        button:hover {
+            background: #6a11cb;
+        }
+        
+        .error {
+            color: crimson;
+            font-weight: 500;
+        }
+    </style>
 </head>
 
-<body style="font-family:Arial; padding:18px;">
-    <h2>Admin Login</h2>
-    {% if message %}
-    <div style="color:crimson">{{ message }}</div>{% endif %}
-    <form method="post" action="{{ url_for('admin') }}">
-        <input name="password" type="password" placeholder="Admin password" required />
-        <button type="submit">Login</button>
-    </form>
+<body>
+    <div class="box">
+        <h2>Admin Login</h2>
+
+        {% if error %}
+        <p class="error">{{ error }}</p>
+        {% endif %}
+
+        <!-- Corrected form action -->
+        <form method="POST" action="{{ url_for('admin_login') }}">
+            <input type="text" name="name" placeholder="Admin Name" required><br>
+            <input type="tel" name="phone" placeholder="Admin Phone" required><br>
+            <button type="submit">Login</button>
+        </form>
+    </div>
 </body>
 
 </html>

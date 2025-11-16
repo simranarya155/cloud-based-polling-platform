@@ -1,66 +1,259 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
-    <meta charset="utf-8">
-    <title>Admin Dashboard</title>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard | Manage Polls</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 0;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            width: 700px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        h2,
+        h3 {
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        input {
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            outline: none;
+            font-size: 15px;
+        }
+        
+        button {
+            background: #ff6a00;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        
+        button:hover {
+            background: #ee0979;
+        }
+        
+        .active-poll,
+        .pending-section,
+        .results-section {
+            margin-top: 25px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: left;
+        }
+        
+        .pending-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .pending-card form {
+            display: inline;
+            margin-left: 10px;
+        }
+        
+        .message {
+            margin-top: 10px;
+            color: yellow;
+            font-weight: 600;
+        }
+        
+        a {
+            color: #fff;
+            text-decoration: underline;
+            margin-top: 15px;
+            display: inline-block;
+        }
+        
+        .divider {
+            margin: 30px 0 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            color: white;
+        }
+        
+        th,
+        td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        th {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        canvas {
+            margin-top: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 10px;
+        }
+    </style>
 </head>
 
-<body style="font-family:Arial; padding:18px;">
-    <h2>Admin Dashboard</h2>
-    <p><a href="{{ url_for('admin_logout') }}">Logout</a></p>
+<body>
+    <div class="container">
+        <h2>Admin Dashboard</h2>
 
-    <h3>Vote counts</h3>
-    <table border="1" cellpadding="6">
-        <thead>
-            <tr>
-                <th>Team</th>
-                <th>Count</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for r in counts %}
-            <tr>
-                <td>{{ r.team }}</td>
-                <td>{{ r.cnt }}</td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="2">No votes yet</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+        <!-- Create Poll Form -->
+        <form method="POST" action="/admin/dashboard">
+            <input type="text" name="question" placeholder="Enter poll question..." required>
+            <input type="text" name="options" placeholder="Enter 4 options (comma separated)" required>
+            <button type="submit">Create Poll</button>
+        </form>
 
-    <h3>All votes (latest first)</h3>
-    <table border="1" cellpadding="6">
-        <thead>
-            <tr>
-                <th>Vote ID</th>
-                <th>Team</th>
-                <th>Voted At</th>
-                <th>User</th>
-                <th>Mobile</th>
-                <th>Email</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for v in votes %}
-            <tr>
-                <td>{{ v.vote_id }}</td>
-                <td>{{ v.team }}</td>
-                <td>{{ v.created_at }}</td>
-                <td>{{ v.name }} (id:{{ v.user_id }})</td>
-                <td>{{ v.mobile }}</td>
-                <td>{{ v.email or '-' }}</td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="6">No votes recorded</td>
-            </tr>
+        {% if error %}
+        <p class="message">{{ error }}</p>
+        {% endif %} {% if active %}
+        <div class="active-poll">
+            <h3>🟢 Active Poll</h3>
+            <p><strong>{{ active['question'] }}</strong></p>
+            <a href="/results">View Live Results</a>
+            <br>
+            <a href="/admin/vote_stats">View Who Voted →</a>
+        </div>
+        {% else %}
+        <p>No active poll currently.</p>
+        {% endif %}
+
+        <div class="divider"></div>
+
+        <!-- 🧾 Voter List + Chart (Optional, if included in context) -->
+        {% if voters %}
+        <div class="results-section">
+            <h3>🗳️ People Who Voted</h3>
+            <table>
+                <tr>
+                    <th>Voter Name</th>
+                    <th>Option Selected</th>
+                </tr>
+                {% for voter, choice in voters %}
+                <tr>
+                    <td>{{ voter }}</td>
+                    <td>{{ choice }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+
+            <h3 style="margin-top:20px;">📊 Poll Results Chart</h3>
+            <canvas id="pollChart" width="400" height="200"></canvas>
+        </div>
+        {% endif %}
+
+        <div class="divider"></div>
+
+        <!-- Request New Admin -->
+        <div class="section">
+            <h3>Request New Admin Access</h3>
+            <form action="/admin/request_access" method="POST">
+                <input type="text" name="new_admin_name" placeholder="New admin name" required>
+                <input type="text" name="new_admin_phone" placeholder="Phone (with country code)" required>
+                <button type="submit">Request Access</button>
+            </form>
+            {% if message %}
+            <p class="message">{{ message }}</p>
+            {% endif %}
+        </div>
+
+        {% if pending_requests %}
+        <div class="pending-section">
+            <h3>Pending Admin Approvals</h3>
+            {% for req in pending_requests %}
+            <div class="pending-card">
+                <p>👤 <strong>{{ req['name'] }}</strong> ({{ req['phone'] }})</p>
+                <form action="/admin/approve/{{ req['id'] }}" method="POST">
+                    <button style="background:green;">Approve</button>
+                </form>
+                <form action="/admin/reject/{{ req['id'] }}" method="POST">
+                    <button style="background:red;">Reject</button>
+                </form>
+            </div>
             {% endfor %}
-        </tbody>
-    </table>
+        </div>
+        {% endif %}
+
+        <div class="divider"></div>
+
+        <a href="/admin/logout">Logout</a>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% if vote_summary %}
+    <script type="text/javascript">
+        const labels = JSON.parse('{{ vote_summary.keys()|list|tojson|safe }}');
+        const votes = JSON.parse('{{ vote_summary.values()|list|tojson|safe }}');
+
+        const ctx = document.getElementById('pollChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Votes per Option',
+                    data: votes,
+                    backgroundColor: ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    </script>
+    {% endif %}
 </body>
 
 </html>

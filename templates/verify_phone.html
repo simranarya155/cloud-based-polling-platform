@@ -1,23 +1,100 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
     <meta charset="utf-8">
-    <title>Verify Phone</title>
+    <title>Phone Verified | Polling System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        body {
+            font-family: "Poppins", sans-serif;
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #333;
+        }
+        
+        .box {
+            background: #fff;
+            padding: 40px 35px;
+            width: 380px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            text-align: center;
+            animation: fadeIn 0.6s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        h2 {
+            color: #4a3aff;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        p {
+            font-size: 15px;
+            color: #555;
+            line-height: 1.5;
+        }
+        
+        strong {
+            color: #000;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: linear-gradient(90deg, #6a11cb, #2575fc);
+            color: #fff;
+            border: none;
+            padding: 12px 18px;
+            width: 80%;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            margin-top: 20px;
+            transition: 0.3s ease;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        
+        .note {
+            color: #333;
+            font-size: 14px;
+            margin-top: 12px;
+        }
+    </style>
 </head>
 
-<body style="font-family:Arial; padding:18px;">
-    <h3>Verify phone for {{ mobile }}</h3>
-    {% if message %}
-    <div style="color:crimson">{{ message }}</div>{% endif %}
-    <p><strong>Demo OTP (would be sent by SMS in production):</strong> {{ otp }}</p>
+<body>
+    <div class="box">
+        <h2>Phone Verified ✅</h2>
+        <p>
+            Hi <strong>{{ session.get('user_name') }}</strong>, your phone number
+            <strong>{{ session.get('phone') }}</strong> has been successfully verified!
+        </p>
+        <p class="note">You can now participate in live polls and view results in real-time.</p>
 
-    <form method="post" action="{{ url_for('verify_phone') }}">
-        <input name="otp" placeholder="Enter OTP" required />
-        <button type="submit">Verify</button>
-    </form>
-
-    <p><a href="{{ url_for('register_page') }}">Back to register</a></p>
+        <a href="{{ url_for('user_dashboard') }}" class="btn">Go to Polls</a>
+    </div>
 </body>
 
 </html>

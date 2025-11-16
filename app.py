@@ -1,303 +1,284 @@
-# app.py
-from flask import Flask, render_template, request, redirect, url_for, flash, session
-import sqlite3
-import random
-from datetime import datetime, timedelta
-from pathlib import Path
-import os
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash 
+import sqlite3, random, datetime, os
 
-# ---------- CONFIG ----------
-DB = 'users.db'
 app = Flask(__name__)
-app.secret_key = 'replace_with_a_random_secret_here'  # CHANGE for production
-OTP_TTL_SECONDS = 5 * 60  # demo OTP lifetime
-ADMIN_PASSWORD = os.environ.get('VOTE_ADMIN_PW', 'adminpass')  # set env var VOTE_ADMIN_PW in production
+app.secret_key = "ANY_RANDOM_SECRET_KEY"
 
-# ---------- DB init ----------
+# ---------------- DATABASE CONNECTION ----------------
+def get_db():
+    conn = sqlite3.connect("polling.db")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# ---------------- HOME PAGE ----------------
+@app.route("/", strict_slashes=False)
+def home():
+    return render_template("home.html")
+
+# ---------------- ADMIN LOGIN ----------------
+@app.route("/admin", methods=["GET", "POST"], strict_slashes=False)
+def admin_login():
+    if request.method == "POST":
+        name = request.form["name"].strip()
+        phone = request.form["phone"].strip()
+        if not phone.startswith("91"):
+            phone = "91" + phone
+
+        conn = get_db()
+        admin = conn.execute("SELECT * FROM admins WHERE name=? AND phone=?", (name, phone)).fetchone()
+        conn.close()
+
+        if admin:
+            session["admin"] = name
+            return redirect(url_for("admin_dashboard"))
+        else:
+            flash("❌ Invalid admin credentials!", "error")
+    return render_template("admin_login.html")
+
+# ---------------- ADMIN DASHBOARD ----------------
+@app.route("/admin/dashboard", methods=["GET", "POST"], strict_slashes=False)
+def admin_dashboard():
+    if not session.get("admin"):
+        return redirect(url_for("admin_login"))
+
+    conn = get_db()
+
+    # --- Create new poll ---
+    if request.method == "POST":
+        question = request.form["question"].strip()
+        options = [opt.strip() for opt in request.form["options"].split(",") if opt.strip()]
+        if not question or len(options) < 2:
+            flash("❌ Enter question and at least 2 options.", "error")
+        else:
+            conn.execute("UPDATE polls SET active=0")
+            conn.execute(
+                "INSERT INTO polls (question, active, created_at) VALUES (?, 1, ?)",
+                (question, datetime.datetime.now().isoformat()),
+            )
+            poll_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            for opt in options:
+                conn.execute("INSERT INTO poll_options (poll_id, option_text) VALUES (?, ?)", (poll_id, opt))
+            conn.commit()
+            flash("✅ Poll created successfully!", "success")
+            return redirect(url_for("results"))
+
+    # --- Get data for dashboard ---
+    active = conn.execute("SELECT * FROM polls WHERE active=1 LIMIT 1").fetchone()
+    voters_data = []
+    vote_summary = {}
+    if active:
+        poll_id = active["id"]
+        voters_data = conn.execute("""
+            SELECT users.name AS voter, poll_options.option_text AS choice
+            FROM votes
+            JOIN users ON votes.phone = users.phone
+            JOIN poll_options ON votes.option_id = poll_options.id
+            WHERE votes.poll_id = ?
+        """, (poll_id,)).fetchall()
+        # summarize by option
+        options = conn.execute("SELECT * FROM poll_options WHERE poll_id=?", (poll_id,)).fetchall()
+        for opt in options:
+            count = conn.execute("SELECT COUNT(*) FROM votes WHERE option_id=?", (opt["id"],)).fetchone()[0]
+            vote_summary[opt["option_text"]] = count
+
+    pending = conn.execute("SELECT * FROM admin_requests WHERE status='pending' ORDER BY created_at").fetchall()
+    conn.close()
+
+    voters = [(row["voter"], row["choice"]) for row in voters_data]
+
+    return render_template(
+        "admin_dashboard.html",
+        active=active,
+        pending_requests=pending,
+        voters=voters,
+        vote_summary=vote_summary
+    )
+
+# ---------------- USER REGISTRATION ----------------
+@app.route("/user", methods=["GET", "POST"], strict_slashes=False)
+def register():
+    if request.method == "POST":
+        name = request.form["name"].strip()
+        phone = request.form["phone"].strip()
+        if not phone.startswith("91"):
+            phone = "91" + phone
+
+        # directly mark verified (no OTP)
+        session["phone"] = phone
+        session["user_name"] = name
+
+        conn = get_db()
+        conn.execute("INSERT OR IGNORE INTO users (phone, name, verified) VALUES (?, ?, 1)", (phone, name))
+        conn.commit()
+        conn.close()
+
+        flash("✅ Logged in successfully!", "success")
+        return redirect(url_for("user_dashboard"))
+
+    return render_template("register.html")
+
+# ---------------- USER DASHBOARD (updated) ----------------
+@app.route("/user_dashboard", strict_slashes=False)
+def user_dashboard():
+    phone = session.get("phone")
+    if not phone:
+        return redirect(url_for("register"))
+
+    conn = get_db()
+    poll = conn.execute("SELECT * FROM polls WHERE active=1 LIMIT 1").fetchone()
+    if not poll:
+        conn.close()
+        flash("❌ No active poll available.", "info")
+        return render_template("user_dashboard.html", poll=None)
+
+    options = conn.execute("SELECT * FROM poll_options WHERE poll_id=?", (poll["id"],)).fetchall()
+    already = conn.execute("SELECT * FROM votes WHERE phone=? AND poll_id=?", (phone, poll["id"])).fetchone()
+
+    # ✅ NEW: if already voted, show warning page instead of poll
+    if already:
+        conn.close()
+        flash("⚠️ You have already voted! Redirecting to live results.", "info")
+        return render_template("already_voted.html")
+
+    total_votes = conn.execute("SELECT COUNT(*) FROM votes WHERE poll_id=?", (poll["id"],)).fetchone()[0]
+    option_data = []
+    for opt in options:
+        count = conn.execute("SELECT COUNT(*) FROM votes WHERE option_id=?", (opt["id"],)).fetchone()[0]
+        percentage = round((count / total_votes * 100), 1) if total_votes > 0 else 0
+        option_data.append({"id": opt["id"], "option_text": opt["option_text"], "percentage": percentage})
+
+    conn.close()
+
+    return render_template("vote.html", poll=poll, options=option_data, already_voted=False)
+
+# ---------------- VOTE (updated) ----------------
+@app.route("/vote", methods=["POST"], strict_slashes=False)
+def vote():
+    phone = session.get("phone")
+    if not phone:
+        return redirect(url_for("register"))
+
+    poll_id = request.form.get("poll_id")
+    option_id = request.form.get("option")
+
+    conn = get_db()
+    already = conn.execute("SELECT * FROM votes WHERE phone=? AND poll_id=?", (phone, poll_id)).fetchone()
+    
+    # ✅ NEW: Prevent revoting and show redirect message
+    if already:
+        conn.close()
+        flash("⚠️ You have already voted! Redirecting to live results.", "info")
+        return render_template("already_voted.html")
+
+    conn.execute("INSERT INTO votes (phone, poll_id, option_id) VALUES (?, ?, ?)", (phone, poll_id, option_id))
+    conn.commit()
+    conn.close()
+    flash("✅ Your vote has been recorded successfully!", "success")
+    return redirect(url_for("results"))
+
+# ---------------- RESULTS ----------------
+@app.route("/results_json", strict_slashes=False)
+def results_json():
+    conn = get_db()
+    poll = conn.execute("SELECT * FROM polls WHERE active=1 LIMIT 1").fetchone()
+    if not poll:
+        conn.close()
+        return jsonify({"active": False})
+
+    poll_id = poll["id"]
+    options = conn.execute("SELECT id, option_text FROM poll_options WHERE poll_id=?", (poll_id,)).fetchall()
+    data = []
+    for opt in options:
+        votes = conn.execute("SELECT COUNT(*) FROM votes WHERE option_id=?", (opt["id"],)).fetchone()[0]
+        data.append({"text": opt["option_text"], "votes": votes})
+
+    conn.close()
+    return jsonify({"active": True, "question": poll["question"], "options": data})
+
+@app.route("/results", strict_slashes=False)
+def results():
+    return render_template("results.html")
+
+# ---------------- ADMIN VOTE STATS ----------------
+@app.route("/admin/vote_stats", strict_slashes=False)
+def vote_stats():
+    if not session.get("admin"):
+        return redirect(url_for("admin_login"))
+
+    conn = get_db()
+    data = conn.execute("""
+        SELECT users.name AS user_name, poll_options.option_text AS choice
+        FROM votes
+        JOIN users ON votes.phone = users.phone
+        JOIN poll_options ON votes.option_id = poll_options.id
+    """).fetchall()
+    conn.close()
+
+    names = [row["user_name"] for row in data]
+    choices = [row["choice"] for row in data]
+    return render_template("vote_stats.html", names=names, choices=choices)
+
+# ---------------- INITIALIZE DATABASE ----------------
 def init_db():
-    with sqlite3.connect(DB) as conn:
-        c = conn.cursor()
-        c.execute('''
+    conn = get_db()
+    cur = conn.cursor()
+    cur.executescript("""
         CREATE TABLE IF NOT EXISTS users (
+            phone TEXT PRIMARY KEY,
+            name TEXT,
+            verified INTEGER DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS admins (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
-            mobile TEXT UNIQUE,
-            email TEXT UNIQUE,
-            phone_verified INTEGER DEFAULT 0,
-            email_verified INTEGER DEFAULT 0,
-            otp_code TEXT,
-            otp_expires DATETIME
-        )
-        ''')
-        c.execute('''
+            phone TEXT UNIQUE
+        );
+        CREATE TABLE IF NOT EXISTS polls (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            question TEXT,
+            active INTEGER DEFAULT 0,
+            created_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS poll_options (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            poll_id INTEGER,
+            option_text TEXT
+        );
         CREATE TABLE IF NOT EXISTS votes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            team TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_id),
-            FOREIGN KEY(user_id) REFERENCES users(id)
-        )
-        ''')
-        conn.commit()
+            phone TEXT,
+            poll_id INTEGER,
+            option_id INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS admin_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            phone TEXT UNIQUE,
+            status TEXT DEFAULT 'pending',
+            created_at TEXT,
+            processed_at TEXT
+        );
+    """)
+    cur.execute("INSERT OR IGNORE INTO admins (name, phone) VALUES (?, ?)", ("Simran Arya", "918279731664"))
+    cur.execute("INSERT OR IGNORE INTO admins (name, phone) VALUES (?, ?)", ("Khyati", "919368472156"))
+    conn.commit()
+    conn.close()
 
-# ---------- helpers ----------
-def generate_otp():
-    return f"{random.randint(0, 999999):06d}"
+# ---------------- RUN APP ----------------
+if __name__ == "__main__":
+    if not os.path.exists("polling.db"):
+        init_db()
+    app.run(debug=True, host="0.0.0.0", port=5000)
 
-def now_plus(seconds):
-    return (datetime.utcnow() + timedelta(seconds=seconds)).isoformat()
 
-def set_otp_for_user_by_mobile(mobile, otp):
-    expires = now_plus(OTP_TTL_SECONDS)
-    with sqlite3.connect(DB) as conn:
-        c = conn.cursor()
-        c.execute('UPDATE users SET otp_code=?, otp_expires=? WHERE mobile=?', (otp, expires, mobile))
-        conn.commit()
 
-def set_otp_for_user_by_email(email, otp):
-    expires = now_plus(OTP_TTL_SECONDS)
-    with sqlite3.connect(DB) as conn:
-        c = conn.cursor()
-        c.execute('UPDATE users SET otp_code=?, otp_expires=? WHERE email=?', (otp, expires, email))
-        conn.commit()
 
-def get_user_by_mobile(mobile):
-    with sqlite3.connect(DB) as conn:
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        c.execute('SELECT * FROM users WHERE mobile=?', (mobile,))
-        return c.fetchone()
 
-def get_user_by_email(email):
-    with sqlite3.connect(DB) as conn:
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        c.execute('SELECT * FROM users WHERE email=?', (email,))
-        return c.fetchone()
 
-def get_user_by_id(uid):
-    with sqlite3.connect(DB) as conn:
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        c.execute('SELECT * FROM users WHERE id=?', (uid,))
-        return c.fetchone()
 
-# ---------- Routes ----------
-@app.route('/')
-def index():
-    return redirect(url_for('register_page'))
 
-# Registration (phone, new user)
-@app.route('/register', methods=['GET'])
-def register_page():
-    return render_template('register.html')
 
-@app.route('/register', methods=['POST'])
-def register():
-    name = request.form.get('name','').strip()
-    mobile = request.form.get('mobile','').strip()
-    if not name or not mobile:
-        return render_template('register.html', message="Please provide name and mobile")
 
-    with sqlite3.connect(DB) as conn:
-        c = conn.cursor()
-        c.execute('SELECT id FROM users WHERE mobile=?', (mobile,))
-        if c.fetchone():
-            return render_template('register.html', message="Mobile already registered. Use email verification to sign in if you are an existing user.")
-        c.execute('INSERT INTO users (name,mobile,phone_verified) VALUES (?,?,0)', (name, mobile))
-        conn.commit()
-    otp = generate_otp()
-    set_otp_for_user_by_mobile(mobile, otp)
-    session['pending_mobile'] = mobile
-    # demo: show OTP on screen; production: send SMS
-    return render_template('verify_phone.html', mobile=mobile, otp=otp, message="Demo OTP shown below (in production send via SMS).")
 
-@app.route('/verify_phone', methods=['POST'])
-def verify_phone():
-    mobile = session.get('pending_mobile') or request.form.get('mobile')
-    code = request.form.get('otp','').strip()
-    if not mobile or not code:
-        return render_template('verify_phone.html', mobile=mobile, message="Missing mobile or OTP")
 
-    with sqlite3.connect(DB) as conn:
-        c = conn.cursor()
-        c.execute('SELECT id, otp_code, otp_expires FROM users WHERE mobile=?', (mobile,))
-        row = c.fetchone()
-        if not row:
-            return render_template('verify_phone.html', mobile=mobile, message="No registration found for this mobile.")
-        user_id, otp_code, otp_expires = row
-        if not otp_code:
-            return render_template('verify_phone.html', mobile=mobile, message="No OTP generated. Register again.")
-        if datetime.fromisoformat(otp_expires) < datetime.utcnow():
-            return render_template('verify_phone.html', mobile=mobile, message="OTP expired. Register again.")
-        if code != otp_code:
-            return render_template('verify_phone.html', mobile=mobile, message="Invalid OTP.")
-        c.execute('UPDATE users SET phone_verified=1, otp_code=NULL, otp_expires=NULL WHERE id=?', (user_id,))
-        conn.commit()
 
-    # mark user logged in
-    session.pop('pending_mobile', None)
-    session['user_id'] = user_id
-    flash('Phone verified and logged in.')
-    return redirect(url_for('vote'))
-
-# Email login (existing users)
-@app.route('/email_login', methods=['GET','POST'])
-def email_login():
-    if request.method == 'GET':
-        return render_template('email_login.html')
-    email = request.form.get('email','').strip()
-    if not email:
-        return render_template('email_login.html', message="Enter email")
-    user = get_user_by_email(email)
-    if not user:
-        return render_template('email_login.html', message="No account found for that email. Register by phone first or attach email to your account.")
-    otp = generate_otp()
-    set_otp_for_user_by_email(email, otp)
-    session['pending_email'] = email
-    return render_template('verify_email.html', email=email, otp=otp, message="Demo OTP shown (in production email it).")
-
-@app.route('/verify_email', methods=['POST'])
-def verify_email():
-    email = session.get('pending_email') or request.form.get('email')
-    code = request.form.get('otp','').strip()
-    if not email or not code:
-        return render_template('verify_email.html', email=email, message="Missing email or OTP")
-    with sqlite3.connect(DB) as conn:
-        c = conn.cursor()
-        c.execute('SELECT id, otp_code, otp_expires FROM users WHERE email=?', (email,))
-        row = c.fetchone()
-        if not row:
-            return render_template('verify_email.html', email=email, message="No pending verification")
-        user_id, otp_code, otp_expires = row
-        if not otp_code:
-            return render_template('verify_email.html', email=email, message="No OTP generated.")
-        if datetime.fromisoformat(otp_expires) < datetime.utcnow():
-            return render_template('verify_email.html', email=email, message="OTP expired")
-        if code != otp_code:
-            return render_template('verify_email.html', email=email, message="Invalid OTP")
-        c.execute('UPDATE users SET email_verified=1, otp_code=NULL, otp_expires=NULL WHERE id=?', (user_id,))
-        conn.commit()
-    session.pop('pending_email', None)
-    session['user_id'] = user_id
-    flash('Email verified and logged in.')
-    return redirect(url_for('vote'))
-
-# attach email utility (demo)
-@app.route('/set_email', methods=['GET','POST'])
-def set_email():
-    if request.method == 'GET':
-        return render_template('set_email.html')
-    mobile = request.form.get('mobile','').strip()
-    email = request.form.get('email','').strip()
-    if not mobile or not email:
-        return render_template('set_email.html', message="Provide both")
-    with sqlite3.connect(DB) as conn:
-        c = conn.cursor()
-        c.execute('SELECT id FROM users WHERE mobile=?', (mobile,))
-        r = c.fetchone()
-        if not r:
-            return render_template('set_email.html', message="No user with that mobile")
-        try:
-            c.execute('UPDATE users SET email=? WHERE mobile=?', (email, mobile))
-            conn.commit()
-        except sqlite3.IntegrityError:
-            return render_template('set_email.html', message="Email already used")
-    return redirect(url_for('users'))
-
-# ---------- Voting ----------
-@app.route('/vote', methods=['GET','POST'])
-def vote():
-    user_id = session.get('user_id')
-    if not user_id:
-        flash('Please login or register first.')
-        return redirect(url_for('index'))
-    user = get_user_by_id(user_id)
-    if not user:
-        flash('User not found.')
-        return redirect(url_for('index'))
-    # only allow users who have verified phone or email to vote
-    if not (user['phone_verified'] or user['email_verified']):
-        flash('Please verify phone or email before voting.')
-        return redirect(url_for('index'))
-
-    TEAMS = ['Team A', 'Team B', 'Team C']  # change to your teams
-    with sqlite3.connect(DB) as conn:
-        c = conn.cursor()
-        c.execute('SELECT team FROM votes WHERE user_id=?', (user_id,))
-        existing = c.fetchone()
-
-        if request.method == 'POST':
-            if existing:
-                return render_template('vote.html', user=user, message="You have already voted.", voted=existing[0], teams=TEAMS)
-            chosen = request.form.get('team')
-            if not chosen or chosen not in TEAMS:
-                return render_template('vote.html', user=user, message="Select a valid team.", teams=TEAMS)
-            c.execute('INSERT INTO votes (user_id, team) VALUES (?,?)', (user_id, chosen))
-            conn.commit()
-            return render_template('vote.html', user=user, message="Thanks — your vote was recorded.", voted=chosen, teams=TEAMS)
-
-    return render_template('vote.html', user=user, teams=TEAMS, voted=(existing[0] if existing else None))
-
-# ---------- Admin ----------
-@app.route('/admin', methods=['GET','POST'])
-def admin():
-    if request.method == 'GET':
-        # if already admin in session, redirect to dashboard
-        if session.get('is_admin'):
-            return redirect(url_for('admin_dashboard'))
-        return render_template('admin_login.html')
-    # POST: log in admin
-    pw = request.form.get('password','')
-    if pw == ADMIN_PASSWORD:
-        session['is_admin'] = True
-        return redirect(url_for('admin_dashboard'))
-    return render_template('admin_login.html', message="Bad password")
-
-@app.route('/admin/dashboard')
-def admin_dashboard():
-    if not session.get('is_admin'):
-        flash('Admin login required.')
-        return redirect(url_for('admin'))
-    with sqlite3.connect(DB) as conn:
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        # aggregated counts per team
-        c.execute('SELECT team, COUNT(*) AS cnt FROM votes GROUP BY team ORDER BY cnt DESC')
-        counts = c.fetchall()
-        # full list of votes with user info
-        c.execute('''
-            SELECT v.id as vote_id, v.team, v.created_at, u.id as user_id, u.name, u.mobile, u.email
-            FROM votes v JOIN users u ON v.user_id = u.id
-            ORDER BY v.created_at DESC
-        ''')
-        votes = c.fetchall()
-    return render_template('admin_dashboard.html', counts=counts, votes=votes)
-
-@app.route('/admin/logout')
-def admin_logout():
-    session.pop('is_admin', None)
-    flash('Admin logged out.')
-    return redirect(url_for('admin'))
-
-# ---------- Users view (print) ----------
-@app.route('/users')
-def users():
-    with sqlite3.connect(DB) as conn:
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        c.execute('SELECT id,name,mobile,email,phone_verified,email_verified FROM users ORDER BY id DESC')
-        rows = c.fetchall()
-    return render_template('users.html', users=rows)
-
-# ---------- Logout for normal users ----------
-@app.route('/logout')
-def logout():
-    session.pop('user_id', None)
-    flash('Logged out.')
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    init_db()
-    app.run(debug=False, host='0.0.0.0', port=5000)

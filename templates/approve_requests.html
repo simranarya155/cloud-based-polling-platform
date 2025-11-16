@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Approve Admin Requests</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #43cea2, #185a9d);
+            color: white;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        table {
+            width: 70%;
+            margin: auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        td,
+        th {
+            padding: 10px;
+        }
+        
+        button {
+            background: #ff6a00;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Pending Admin Requests</h2>
+
+    {% if requests %}
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Action</th>
+        </tr>
+        {% for req in requests %}
+        <tr>
+            <td>{{ req['name'] }}</td>
+            <td>{{ req['phone'] }}</td>
+            <td>
+                <form method="POST">
+                    <input type="hidden" name="phone" value="{{ req['phone'] }}">
+                    <button type="submit">Approve</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p>No pending requests.</p>
+    {% endif %}
+
+    <br>
+    <a href="/admin/dashboard" style="color: white;">⬅ Back to Dashboard</a>
+</body>
+
+</html>
